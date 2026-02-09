@@ -2,7 +2,7 @@ import sys, os
 package_dir = os.path.abspath("C:/Users/froll/Documents/Labo/Projets/Violon/ManipViolon_Anech_08062023")
 if package_dir not in sys.path:
     sys.path.insert(0, package_dir)
-import Tools3D as tools3d
+from scripts import Tools3D as tools3d
 package_dir = os.path.abspath("C:/Users/froll/Documents/Labo/Projets/Violon/ManipViolon_Anech_08062023/array-processing/toolboxes")
 if package_dir not in sys.path:
     sys.path.insert(0, package_dir)

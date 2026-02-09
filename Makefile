@@ -4,9 +4,9 @@ PYTHON := python3
 VENV := venv
 
 # Server configuration - override with environment variables
-SERVER_USER ?= user
-SERVER_HOST ?= server.example.com
-SERVER_PROJECT_PATH ?= ~/projects/$(notdir $(CURDIR))
+SERVER_USER ?= ollivief
+SERVER_HOST ?= mesu
+SERVER_PROJECT_PATH ?= ~/Projets/BilbaoViolinsDir
 
 help:
 	@echo "Local commands:"
