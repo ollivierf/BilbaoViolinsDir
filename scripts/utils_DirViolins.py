@@ -1,18 +1,15 @@
-import sys, os
-package_dir = os.path.abspath("C:/Users/froll/Documents/Labo/Projets/Violon/ManipViolon_Anech_08062023")
-if package_dir not in sys.path:
-    sys.path.insert(0, package_dir)
-from scripts import Tools3D as tools3d
-package_dir = os.path.abspath("C:/Users/froll/Documents/Labo/Projets/Violon/ManipViolon_Anech_08062023/array-processing/toolboxes")
-if package_dir not in sys.path:
-    sys.path.insert(0, package_dir)
-import array_processing as ap
+from scipy.special import eval_jacobi, factorial
 import numpy as np
-import matplotlib.pyplot as plt
-import utils_SHanalysis as SHutils
-import utils_acoustics as acoustics
-import utils_geometry as geom
-import warnings
+
+import sys, os
+package_dir = os.path.abspath("C:/Users/froll/Documents/Labo/Projets/Outils/swd")
+if package_dir not in sys.path:
+    sys.path.insert(0, package_dir)
+
+from swd import spherical_processing as sp
+from swd import geotools as geom
+from swd import plots as splots
+import swd as swd
 import numpy as np
 import plotly.graph_objs as go
 
@@ -54,11 +51,11 @@ def z_rotate_coordinates(coords, a):
 def Dinf_from_meas(x_meas, XYZ_Mems, freqvect, N, nbtheta = 51, nbphi = 103, rmin = 1.5,
                    lambda_reg = 1e-4, c0 = 343, SH_Center = np.array([0,0,0])):
     kvect = 2*np.pi*freqvect/c0   
-    N_SH_vect = SHutils.compute_N_SH_vect(freqvect, N, rmin = 1.5)
-    H_array = SHutils.compute_SphericalWavesbasis_origin_to_field(XYZ_Mems, kvect, N, SH_Center)
-    cmn = SHutils.compute_SHcoefs(x_meas, H_array, N_SH_vect = N_SH_vect, lambda_reg=lambda_reg)
+    N_SH_vect = swd.compute_N_SH_vect(freqvect, N, rmin = 1.5)
+    H_array = swd.compute_SphericalWavesbasis_origin_to_field(XYZ_Mems, kvect, N, SH_Center)
+    cmn = swd.compute_SHcoefs(x_meas, H_array, N_SH_vect = N_SH_vect, lambda_reg=lambda_reg)
     angles = geom.create_equal_angle_grid(nbtheta, nbphi)
-    Dinf_meas = SHutils.compute_Dinf_from_SH_coefs_at_origin(cmn, angles, kvect)
+    Dinf_meas = swd.compute_Dinf_from_SH_coefs_at_origin(cmn, angles, kvect)
 
     return(cmn, Dinf_meas, angles)
 
@@ -197,3 +194,78 @@ def plot_3D_Diag_30dB(Diag, angles, fig, row, col, clims,cscale):
         ),
         row=row, col=col
     )
+
+def wigner_D_matrix(j, alpha, beta, gamma):
+    """
+    Compute the Wigner D-matrix D^j(alpha, beta, gamma).
+    
+    This function computes the (2j+1)x(2j+1) Wigner D-matrix for a given angular momentum j 
+    and Euler angles (alpha, beta, gamma) in radians.
+    
+    Args:
+        j (int): Angular momentum quantum number (must be integer >= 0).
+        alpha (float): Euler angle alpha (rotation around Z) in radians.
+        beta (float): Euler angle beta (rotation around Y) in radians.
+        gamma (float): Euler angle gamma (rotation around Z) in radians.
+        
+    Returns:
+        numpy.ndarray: The (2j+1)x(2j+1) complex Wigner D-matrix.
+    """
+    size = int(2 * j + 1)
+    
+    # Pre-compute trigonometric terms
+    sb2 = np.sin(beta / 2.0)
+    cb2 = np.cos(beta / 2.0)
+    x = np.cos(beta)
+    
+    # Precompute factorials up to 2j
+    # Note: For large j, use gammaln to avoid overflow, but for typical SH orders (j<50), factorial is fine.
+    # fact[n] needs to accommodate indices up to 2j
+    fact = factorial(np.arange(0, int(2 * j) + 5))
+
+    d_mat = np.zeros((size, size))
+    m = np.arange(-j, j + 1)
+    
+    for i, mp in enumerate(m):
+        for k, mv in enumerate(m):
+            # Symmetry handling to map to valid Jacobi polynomial indices (n>=0, a>-1, b>-1)
+            # m' -> mp, m -> mv.
+            
+            target_mp, target_mv = mp, mv
+            factor = 1.0
+            
+            # 1. Use d_{m',m}^j = (-1)^(m'-m) d_{m,m'}^j to ensure m' >= m
+            if target_mp < target_mv:
+                factor *= (-1.0)**(target_mp - target_mv)
+                target_mp, target_mv = target_mv, target_mp
+                
+            # 2. Use d_{m',m}^j = (-1)^(m'-m) d_{-m',-m}^j to ensure m' + m >= 0
+            if target_mp + target_mv < 0:
+                 factor *= (-1.0)**(target_mp - target_mv)
+                 target_mp, target_mv = -target_mv, -target_mp 
+            
+            # Now target_mp >= target_mv and target_mp + target_mv >= 0.
+            # a = m' - m >= 0
+            # b = m' + m >= 0
+            n = int(j - target_mp)
+            a = int(target_mp - target_mv)
+            b = int(target_mp + target_mv)
+            
+            # Normalization factor
+            # For this standard Jacobi definition:
+            # d_mm' = sqrt( (j+m')! (j-m')! / ( (j+m)! (j-m)! ) )  * ...
+            # Wait, using factorials computed earlier:
+            # fact[n] corresponds to n!
+            val_num = fact[int(j + target_mp)] * fact[int(j - target_mp)]
+            val_den = fact[int(j + target_mv)] * fact[int(j - target_mv)]
+            norm = np.sqrt(val_num / val_den)
+            
+            # Compute element
+            val = norm * (sb2**a) * (cb2**b) * eval_jacobi(n, a, b, x)
+            d_mat[i, k] = factor * val
+
+    # Apply phases D_{m',m} = e^{-i m' alpha} * d_{m',m}(beta) * e^{-i m gamma}
+    mp_grid, mv_grid = np.meshgrid(m, m, indexing='ij')
+    phase = np.exp(-1j * (mp_grid * alpha + mv_grid * gamma))
+    
+    return phase * d_mat
