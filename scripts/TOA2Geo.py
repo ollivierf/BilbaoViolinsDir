@@ -16,7 +16,6 @@ import warnings
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import cdist
 import scipy.signal as sig
-import os
 import rcbox
 print(rcbox.__file__)
 from rcbox.rmds import RMDU

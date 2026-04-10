@@ -2,9 +2,8 @@ import numpy as np
 import scipy.spatial.transform as trsf
 import scipy.signal as sig
 import meshio
-import numpy as np
 import plotly.graph_objs as go
-import scipy.spatial.transform as trsf
+
 
 def Plot_Isos(fig,S, Grid, Limits, Dyn) :
     S/=np.max(np.abs(S))
